@@ -1,0 +1,12 @@
+streamlit>=1.61
+chromadb>=1.0
+llama-index-core>=0.12
+llama-index-vector-stores-chroma>=0.4
+llama-index-embeddings-huggingface>=0.5
+sudachipy>=0.6
+sudachidict-core
+rank-bm25>=0.2
+pydantic>=2.7
+anthropic>=1.2.0
+python-dotenv>=1.0
+huggingface_hub>=0.25

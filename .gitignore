@@ -1,0 +1,18 @@
+# データは一切コミットしない（実データは private HF Dataset から実行時に取得する）
+data/
+*.jsonl
+
+# 秘密情報（Space では Secrets 環境変数を使う。ファイルは置かない）
+.env
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+desktop.ini
+Thumbs.db
