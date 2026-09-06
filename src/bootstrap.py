@@ -41,6 +41,17 @@ def _collection_count() -> int | None:
         return None
 
 
+def _dataset_has_index() -> bool:
+    """Dataset側に構築済みインデックス（chroma/）があるか。確認不能時はTrue扱い。"""
+    try:
+        from huggingface_hub import list_repo_files
+
+        files = list_repo_files(HF_DATA_REPO, repo_type="dataset")
+        return any(f.startswith("chroma/") for f in files)
+    except Exception:  # noqa: BLE001 — 確認できない時は余計なアップロードをしない
+        return True
+
+
 def _upload_index_to_hub() -> None:
     """構築したインデックスを Dataset に保存する（次回起動はダウンロードで済む）。"""
     if not HF_DATA_REPO:
@@ -91,6 +102,11 @@ def ensure_ready() -> bool:
             if not TOKENS_FILE.exists():
                 save_bm25_tokens(chunks)
             build_chroma_index(chunks)
+
+    # Dataset側に無ければアップロードする。構築の有無と切り離す理由:
+    # 「手元にインデックスが残っていて構築をスキップした起動」でも
+    # クラウド保存を完了させ、次回のコールドスタートを速くするため
+    if HF_DATA_REPO and not _dataset_has_index():
         _upload_index_to_hub()
 
     return True

@@ -237,23 +237,38 @@ def main() -> None:
         placeholder="ここに解答を記述してください（言い換え表現でも採点されます）",
     )
 
-    if st.button("採点する", type="primary", disabled=not answer.strip()):
-        spinner_msg = (
-            "検索と採点を実行中...（初回は埋め込みモデルの読み込みで30秒ほどかかります）"
-            if mode == "api"
-            else "mock採点を実行中..."
-        )
-        with st.spinner(spinner_msg):
-            try:
+    # 前回の採点失敗があれば表示する（rerun をまたいで伝えるため session_state 経由）
+    if (err := st.session_state.pop("grading_error", None)) is not None:
+        st.error(f"採点に失敗しました: {err}")
+
+    # 二段階方式にする理由: Streamlitは処理実行中もボタンが押せてしまい二重採点
+    # （=二重課金）になり得るため、クリック→フラグを立てて再実行→無効化された
+    # ボタンを描画してから採点する、という順にする
+    grading = st.session_state.get("grading_in_progress", False)
+    clicked = st.button(
+        "採点中..." if grading else "採点する",
+        type="primary",
+        disabled=grading or not answer.strip(),
+    )
+    if clicked and not grading:
+        st.session_state["grading_in_progress"] = True
+        st.rerun()
+
+    if grading:
+        record = None
+        try:
+            spinner_msg = "検索と採点を実行中..." if mode == "api" else "mock採点を実行中..."
+            with st.spinner(spinner_msg):
                 record = run_grading(rubric, answer, mode)
-            except Exception as e:  # noqa: BLE001 — 失敗理由を画面に出して継続
-                st.error(f"採点に失敗しました: {e}")
-                record = None
+        except Exception as e:  # noqa: BLE001 — 失敗理由を次の描画で表示して継続
+            st.session_state["grading_error"] = str(e)
+        finally:
+            st.session_state["grading_in_progress"] = False
         if record is not None:
             save_history(record)
             st.session_state["last_record"] = record
-            # サイドバーは採点より先に描画済みのため、再実行して履歴一覧に即時反映する
-            st.rerun()
+        # サイドバーは採点より先に描画済みのため、再実行して履歴一覧とボタン状態を更新する
+        st.rerun()
 
     # 直近の結果を表示し続ける（ボタン再描画で消えないように session_state に持つ）
     last = st.session_state.get("last_record")
