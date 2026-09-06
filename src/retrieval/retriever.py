@@ -14,6 +14,7 @@
 import argparse
 import json
 import sys
+import threading
 from dataclasses import dataclass, field
 
 import chromadb
@@ -47,39 +48,44 @@ class Hit:
 
 
 # モデル・インデックスは重いのでモジュール内でキャッシュする
-# （2系統クエリで同一プロセスから2回呼ばれるため）
+# （2系統クエリで同一プロセスから2回呼ばれるため）。
+# ロックを使う理由: UI側がバックグラウンドスレッドで先読み（warm_up）するため、
+# 読み込み中に採点が始まっても二重ロードせず完了を待てるようにする
 _EMBED_MODEL = None
 _INDEX = None
 _BM25 = None  # (ids, BM25Okapi)
 _SUDACHI = None
+_LOAD_LOCK = threading.RLock()
 
 
 def _get_index() -> VectorStoreIndex:
     global _EMBED_MODEL, _INDEX
-    if _INDEX is None:
-        _EMBED_MODEL = HuggingFaceEmbedding(
-            model_name=EMBEDDING_MODEL,
-            text_instruction=E5_PASSAGE_PREFIX,
-            query_instruction=E5_QUERY_PREFIX,
-        )
-        client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-        collection = client.get_collection(COLLECTION_NAME)
-        vector_store = ChromaVectorStore(chroma_collection=collection)
-        _INDEX = VectorStoreIndex.from_vector_store(vector_store, embed_model=_EMBED_MODEL)
-    return _INDEX
+    with _LOAD_LOCK:
+        if _INDEX is None:
+            _EMBED_MODEL = HuggingFaceEmbedding(
+                model_name=EMBEDDING_MODEL,
+                text_instruction=E5_PASSAGE_PREFIX,
+                query_instruction=E5_QUERY_PREFIX,
+            )
+            client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+            collection = client.get_collection(COLLECTION_NAME)
+            vector_store = ChromaVectorStore(chroma_collection=collection)
+            _INDEX = VectorStoreIndex.from_vector_store(vector_store, embed_model=_EMBED_MODEL)
+        return _INDEX
 
 
 def _get_bm25() -> tuple[list[str], BM25Okapi]:
     global _BM25
-    if _BM25 is None:
-        ids, corpus = [], []
-        with TOKENS_FILE.open(encoding="utf-8") as f:
-            for line in f:
-                rec = json.loads(line)
-                ids.append(rec["id"])
-                corpus.append(rec["tokens"])
-        _BM25 = (ids, BM25Okapi(corpus))
-    return _BM25
+    with _LOAD_LOCK:
+        if _BM25 is None:
+            ids, corpus = [], []
+            with TOKENS_FILE.open(encoding="utf-8") as f:
+                for line in f:
+                    rec = json.loads(line)
+                    ids.append(rec["id"])
+                    corpus.append(rec["tokens"])
+            _BM25 = (ids, BM25Okapi(corpus))
+        return _BM25
 
 
 def tokenize_query(text: str) -> list[str]:
@@ -88,10 +94,24 @@ def tokenize_query(text: str) -> list[str]:
     構築時と揃えないとBM25の語彙が噛み合わないため、必ずこの関数を使うこと。
     """
     global _SUDACHI
-    if _SUDACHI is None:
-        _SUDACHI = dictionary.Dictionary().create()
+    with _LOAD_LOCK:
+        if _SUDACHI is None:
+            _SUDACHI = dictionary.Dictionary().create()
     mode = tokenizer.Tokenizer.SplitMode.C
     return [t.normalized_form() for t in _SUDACHI.tokenize(text, mode) if t.normalized_form().strip()]
+
+
+def warm_up() -> None:
+    """検索に必要な重い部品（埋め込みモデル・BM25・形態素解析器）を先に読み込む。
+
+    UI側がページ表示直後にバックグラウンドスレッドで呼び、ユーザーが解答を
+    入力している時間を読み込みに充てる（初回採点の体感待ちをなくす）。
+    """
+    _get_index()
+    _get_bm25()
+    tokenize_query("ウォームアップ")
+    # ログはUTF-8でないコンソール（Windows等）でも化けないようASCIIにする
+    print("preload: search model ready", flush=True)
 
 
 def minmax_normalize(scores: dict[str, float]) -> dict[str, float]:

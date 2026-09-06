@@ -157,11 +157,26 @@ def render_record(record: dict, rubric: Rubric) -> None:
 # ---------- 画面本体 ----------
 
 
+@st.cache_resource(show_spinner=False)
+def start_preload() -> bool:
+    """検索モデルの先読みをバックグラウンドで開始する（プロセス内で1回だけ）。
+
+    ユーザーが解答を入力している時間を読み込みに充て、初回採点の待ちをなくす。
+    """
+    import threading
+
+    from src.retrieval.retriever import warm_up
+
+    threading.Thread(target=warm_up, daemon=True, name="model-preload").start()
+    return True
+
+
 def main() -> None:
     rubrics = load_all_rubrics()
     if not rubrics:
         st.error(f"ルーブリックが見つかりません: {RUBRICS_DIR}")
         st.stop()
+    start_preload()
 
     # --- サイドバー: 設定と履歴 ---
     st.sidebar.header("採点設定")

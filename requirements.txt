@@ -3,7 +3,9 @@
 torch>=2.2
 
 streamlit>=1.61
-chromadb>=1.0
+# chromadbは固定する: Datasetに保存した構築済みインデックスの形式と
+# 実行環境の版がズレると読み込めなくなるため（ローカル開発環境と同じ版）
+chromadb==1.5.9
 llama-index-core>=0.12
 llama-index-vector-stores-chroma>=0.4
 llama-index-embeddings-huggingface>=0.5
