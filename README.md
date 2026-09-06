@@ -52,3 +52,13 @@ streamlit run app.py --server.address localhost
 ```
 
 データをローカルに持っている場合は `PT2_DATA_DIR` でそのディレクトリを指定します。
+
+## Streamlit Community Cloud へのデプロイ
+
+1. このリポジトリを GitHub に置く（コードのみ・データなし）
+2. share.streamlit.io で New app → リポジトリと `app.py` を指定
+3. Advanced settings で Python 3.11 を選択し、Secrets に上記の環境変数を
+   TOML 形式（`APP_PASSWORD = "..."` など1行1項目）で貼り付ける
+4. 初回起動時に private Dataset の取得とインデックス構築が走る（数分）
+
+※ 冒頭の YAML ヘッダは Hugging Face Space 用の設定で、Community Cloud では無視される。

@@ -12,6 +12,16 @@ import os
 import sys
 from pathlib import Path
 
+# Streamlit Community Cloud の sqlite3 は古く chromadb が要求する版に満たないため、
+# pysqlite3-binary で差し替える（chromadb の import より前に行うこと）。
+# ローカルWindows等では未インストールなので何もしない
+try:
+    import pysqlite3  # noqa: F401
+
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass
+
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
@@ -19,6 +29,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 st.set_page_config(page_title="PT2記述採点", page_icon="📝", layout="wide")
+
+# ホスティング先によっては Secrets が環境変数に載らないことがあるため、
+# st.secrets のフラットな文字列キーを環境変数へ橋渡しする（設定読み込みより前）
+try:
+    for _k, _v in st.secrets.items():
+        if isinstance(_v, str) and _k not in os.environ:
+            os.environ[_k] = _v
+except Exception:  # noqa: BLE001 — secrets未設定のローカル実行では何もしない
+    pass
 
 
 def check_password() -> bool:

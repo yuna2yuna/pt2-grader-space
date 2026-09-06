@@ -1,3 +1,7 @@
+# CPU専用のtorchを使う（GPU版は2.5GB超で無料ホスティングのビルドを圧迫するため）
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+
 streamlit>=1.61
 chromadb>=1.0
 llama-index-core>=0.12
@@ -10,3 +14,6 @@ pydantic>=2.7
 anthropic>=1.2.0
 python-dotenv>=1.0
 huggingface_hub>=0.25
+# Streamlit Community Cloud の sqlite3 が古く chromadb が起動できない既知問題の回避
+# （app.py 冒頭で sqlite3 をこのパッケージに差し替える。Linux でのみ導入）
+pysqlite3-binary; sys_platform == "linux"
