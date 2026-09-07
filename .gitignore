@@ -1,6 +1,9 @@
-# データは一切コミットしない（実データは private HF Dataset から実行時に取得する）
+# 実データは一切コミットしない（private HF Dataset から実行時に取得する）。
+# demo_data/ だけは例外: 著作物を含まない完全自作のデモ教材（コミット対象）
 data/
 *.jsonl
+!demo_data/**/*.jsonl
+demo_data/chroma/
 
 # 秘密情報（Space では Secrets 環境変数を使う。ファイルは置かない）
 .env

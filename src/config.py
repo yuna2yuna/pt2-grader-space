@@ -11,14 +11,31 @@ from pathlib import Path
 # このファイルの位置からリポジトリルートを解決する（実行時のcwdに依存させない）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DATA_DIR = Path(os.environ.get("PT2_DATA_DIR", PROJECT_ROOT / "data"))
-CHUNKS_FILE = DATA_DIR / "chunks" / "textbook_chunks.jsonl"
-TOKENS_FILE = DATA_DIR / "chunks" / "textbook_tokens.jsonl"  # BM25用
-CHROMA_DIR = DATA_DIR / "chroma"
-
 # データ取得元の private HF Dataset（例: "username/pt2-grader-data"）。
 # 未設定ならダウンロードせず、既にあるローカルデータのみを使う
 HF_DATA_REPO = os.environ.get("PT2_HF_DATA_REPO", "")
+
+
+def _resolve_data_dir() -> Path:
+    """データディレクトリの解決。優先順:
+    1. PT2_DATA_DIR（明示指定）
+    2. HF Dataset利用時は data/（ダウンロード先）
+    3. data/ に教材があればそれ
+    4. 同梱のデモ教材 demo_data/（clone直後でもそのまま動かせるように）
+    """
+    if "PT2_DATA_DIR" in os.environ:
+        return Path(os.environ["PT2_DATA_DIR"])
+    default = PROJECT_ROOT / "data"
+    if HF_DATA_REPO or (default / "chunks" / "textbook_chunks.jsonl").exists():
+        return default
+    demo = PROJECT_ROOT / "demo_data"
+    return demo if demo.exists() else default
+
+
+DATA_DIR = _resolve_data_dir()
+CHUNKS_FILE = DATA_DIR / "chunks" / "textbook_chunks.jsonl"
+TOKENS_FILE = DATA_DIR / "chunks" / "textbook_tokens.jsonl"  # BM25用
+CHROMA_DIR = DATA_DIR / "chroma"
 
 # 埋め込みモデル: multilingual-e5系。e5系はテキスト側に "passage: "、
 # 検索側に "query: " の接頭辞を付けて学習されているため、付け忘れると精度が落ちる

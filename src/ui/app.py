@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import hmac
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -195,6 +197,26 @@ def main() -> None:
     if mode == "mock":
         st.sidebar.caption("mockはキーワード判定のみ・検索なし（出典は出ません）")
 
+    # 公開デモ用のAPI合言葉ゲート: API_KEYWORD が設定されている環境では、
+    # API採点（運営者のAPIクレジットを消費する）だけ合言葉を要求する。
+    # mock採点と検索・出典表示は誰でも自由に試せる
+    api_locked = False
+    if mode == "api" and (keyword := os.environ.get("API_KEYWORD", "")):
+        if not st.session_state.get("api_unlocked", False):
+            entered = st.sidebar.text_input(
+                "API採点の合言葉",
+                type="password",
+                help="AI採点の実行には合言葉が必要です（mock採点は自由にお試しいただけます）",
+            )
+            if entered:
+                if hmac.compare_digest(entered, keyword):
+                    st.session_state["api_unlocked"] = True
+                    st.rerun()
+                else:
+                    st.sidebar.error("合言葉が違います")
+            api_locked = True
+            st.sidebar.caption("合言葉がない場合も、mock採点は自由に試せます")
+
     st.sidebar.divider()
     st.sidebar.header("採点履歴")
     history = list_history()
@@ -245,10 +267,12 @@ def main() -> None:
     # （=二重課金）になり得るため、クリック→フラグを立てて再実行→無効化された
     # ボタンを描画してから採点する、という順にする
     grading = st.session_state.get("grading_in_progress", False)
+    if api_locked:
+        st.info("API採点を試すには、サイドバーで合言葉を入力してください（mock採点は合言葉なしで実行できます）")
     clicked = st.button(
         "採点中..." if grading else "採点する",
         type="primary",
-        disabled=grading or not answer.strip(),
+        disabled=grading or api_locked or not answer.strip(),
     )
     if clicked and not grading:
         st.session_state["grading_in_progress"] = True
