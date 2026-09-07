@@ -3,7 +3,9 @@
 data/
 *.jsonl
 !demo_data/**/*.jsonl
+# デモ実行時に生成されるもの（インデックス・採点履歴）はコミットしない
 demo_data/chroma/
+demo_data/ui/
 
 # 秘密情報（Space では Secrets 環境変数を使う。ファイルは置かない）
 .env
