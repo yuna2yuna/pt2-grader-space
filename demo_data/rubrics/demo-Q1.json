@@ -1,6 +1,6 @@
-{
+﻿{
   "question_id": "demo-Q1",
-  "status": "draft_ai",
+  "status": "reviewed",
   "theme": "浸透探傷試験の原理と基本手順（デモ問題）",
   "question_text": "浸透探傷試験の原理を説明し、試験の基本手順を順に述べよ。また、この試験方法で検出できるきずの種類と、その理由を述べよ。",
   "max_score": 20,
