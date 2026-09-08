@@ -266,17 +266,24 @@ def main() -> None:
     # 二段階方式にする理由: Streamlitは処理実行中もボタンが押せてしまい二重採点
     # （=二重課金）になり得るため、クリック→フラグを立てて再実行→無効化された
     # ボタンを描画してから採点する、という順にする
+    # ボタンは採点中以外は常に押せるようにする（空欄・API未解錠はクリック時に案内）。
+    # こうするとクリック自体が入力の確定（blur）を兼ね、Ctrl+Enter不要になる
     grading = st.session_state.get("grading_in_progress", False)
     if api_locked:
         st.info("API採点を試すには、サイドバーで合言葉を入力してください（mock採点は合言葉なしで実行できます）")
     clicked = st.button(
         "採点中..." if grading else "採点する",
         type="primary",
-        disabled=grading or api_locked or not answer.strip(),
+        disabled=grading,
     )
     if clicked and not grading:
-        st.session_state["grading_in_progress"] = True
-        st.rerun()
+        if api_locked:
+            st.warning("API採点にはサイドバーの合言葉が必要です。またはmock採点に切り替えてください")
+        elif not answer.strip():
+            st.warning("解答を入力してから採点してください")
+        else:
+            st.session_state["grading_in_progress"] = True
+            st.rerun()
 
     if grading:
         record = None
