@@ -44,7 +44,8 @@ def load_rubric(rubric_id_or_path: str) -> Rubric:
     path = Path(rubric_id_or_path)
     if not path.exists():
         path = RUBRICS_DIR / f"{rubric_id_or_path}.json"
-    return Rubric.model_validate_json(path.read_text(encoding="utf-8"))
+    # utf-8-sig: Excel/PowerShell等で編集されBOMが付いたJSONも読めるようにする
+    return Rubric.model_validate_json(path.read_text(encoding="utf-8-sig"))
 
 
 def retrieve_chunks(
