@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import streamlit as st
 
 from src.config import (
@@ -21,6 +23,12 @@ from src.config import (
     HF_DATA_REPO,
     TOKENS_FILE,
 )
+
+# @st.cache_resource を使わない理由: キャッシュした関数が描画したUI部品
+# （st.status等）は以後の再描画でも「再生」され続け、終わったはずの
+# 「構築中...」が画面に残る。自前のフラグ+ロックなら進捗表示は実作業中だけ出る
+_READY = False
+_BOOT_LOCK = threading.Lock()
 
 
 def _chunk_count() -> int:
@@ -70,9 +78,20 @@ def _upload_index_to_hub() -> None:
         st.warning(f"インデックスのクラウド保存に失敗しました（次回起動時に再構築されます）: {e}")
 
 
-@st.cache_resource(show_spinner=False)
 def ensure_ready() -> bool:
     """データとインデックスを使える状態にする。準備済みならTrueを返すだけ。"""
+    global _READY
+    if _READY:
+        return True
+    with _BOOT_LOCK:
+        if _READY:  # ロック待ちの間に別セッションが準備を終えた場合
+            return True
+        _prepare()
+        _READY = True
+    return True
+
+
+def _prepare() -> None:
     if not CHUNKS_FILE.exists() and HF_DATA_REPO:
         with st.status("教材データを取得中...", expanded=False):
             from huggingface_hub import snapshot_download
@@ -108,5 +127,3 @@ def ensure_ready() -> bool:
     # クラウド保存を完了させ、次回のコールドスタートを速くするため
     if HF_DATA_REPO and not _dataset_has_index():
         _upload_index_to_hub()
-
-    return True
