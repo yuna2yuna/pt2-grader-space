@@ -9,7 +9,7 @@
     → LLM呼び出し（--mock はルールベース / --api は claude-sonnet-5 構造化出力）
     → スキーマ検証 → references をチャンクメタデータから構成 → JSON出力
 
---api は課金あり（2026-08-26 開発者承認済み）。APIキーはプロジェクト直下の
+--api はAnthropic APIの課金が発生する。APIキーはプロジェクト直下の
 .env（ANTHROPIC_API_KEY=...）から読み込む。
 """
 
@@ -115,7 +115,7 @@ def mock_grade(rubric: Rubric, answer_text: str, chunks: list[RetrievedChunk]) -
         feedback=(
             f"{len(results)}観点中{n_matched}観点で言及を確認しました。"
             "（mockモード: キーワード一致による簡易判定です。言い換え表現は"
-            "評価できないため、実採点はM5のAPI採点で行ってください）"
+            "評価できないため、実採点はAPI採点モードをご利用ください）"
         ),
         confidence="low",
     )
@@ -274,7 +274,7 @@ def main() -> int:
     mode_group.add_argument(
         "--api", action="store_true", help=f"実API採点（{GRADING_MODEL}、課金あり）"
     )
-    # 既定8の根拠: 検索評価（memory/experiments.md 2026-07-30）でk=6だと問題文クエリの
+    # 既定8の根拠: 検索評価（Hit@k/観点カバー率）の実測でk=6だと問題文クエリの
     # 観点カバー率が55.6%に落ち、k=8で88.9%に回復したため
     parser.add_argument("-k", "--top-k", type=int, default=8, help="検索チャンク数（既定8）")
     parser.add_argument("--out", help="結果JSONの保存先（省略時は標準出力のみ）")
